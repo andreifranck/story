@@ -1,10 +1,10 @@
 SELECT
-    u.id AS user_id,
+    uu.id AS user_id,
     COALESCE(SUM(pr.purchased_price), 0) AS ltv
 FROM
-    Users u
+    unique_users uu
 LEFT JOIN
-    unique_purchase_receipts pr ON u.id = pr.user_id
+    unique_purchase_receipts pr ON uu.id = pr.user_id
 LEFT JOIN
     unique_purchase_orders upo ON pr.purchase_order_id = upo.id
 WHERE
@@ -16,6 +16,6 @@ WHERE
     AND (upo.is_free = FALSE OR upo.is_free IS NULL)
     AND (upo.is_trial = FALSE OR upo.is_trial IS NULL)
 GROUP BY
-    u.id
+    uu.id
 ORDER BY
-    u.id ASC;
+    uu.id ASC;
