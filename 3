@@ -25,3 +25,9 @@ GROUP BY
     uu.id, uu.email, la.name, uu.app_id
 ORDER BY
     uu.id ASC;
+
+
+
+
+MIN(pr.purchased_at) AS first_purchase_at calculates the minimum earliest purchase date for each user and aliases it as first_purchase_at.
+COALESCE(SUM(pr.purchased_price), 0) AS ltv calculates the sum of purchased prices for each user and aliases it as ltv. The COALESCE ensures that if there are no purchases the value will be 0.
