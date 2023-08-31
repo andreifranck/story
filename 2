@@ -1,13 +1,8 @@
 
-SELECT
-    uu.app_id,
-    COALESCE(AVG(ltv.ltv_value), 0) AS avg_ltv
-FROM
-    unique_users uu
-LEFT JOIN (
+WITH UserLTV AS (
     SELECT
         uu.app_id,
-        uu.id AS user_id,
+        pr.user_id,
         COALESCE(SUM(pr.purchased_price), 0) AS ltv_value
     FROM
         unique_users uu
@@ -16,7 +11,7 @@ LEFT JOIN (
     LEFT JOIN
         unique_purchase_orders upo ON pr.purchase_order_id = upo.id
     WHERE
-        (pr.deleted = FALSE OR pr.deleted IS NULL)
+       (pr.deleted = FALSE OR pr.deleted IS NULL)
         AND (pr.is_subscription_trial = FALSE OR pr.is_subscription_trial IS NULL)
         AND (pr.is_free = FALSE OR pr.is_free IS NULL)
         AND (pr.trial_mode = FALSE OR pr.trial_mode IS NULL)
@@ -24,10 +19,14 @@ LEFT JOIN (
         AND (upo.is_free = FALSE OR upo.is_free IS NULL)
         AND (upo.is_trial = FALSE OR upo.is_trial IS NULL)
     GROUP BY
-        uu.app_id, uu.id
-) ltv ON uu.id = ltv.user_id
+        uu.app_id, pr.user_id
+)
+SELECT
+    app_id,
+    COALESCE(AVG(ltv_value), 0) AS avg_ltv
+FROM
+    UserLTV
 GROUP BY
-    uu.app_id
+    app_id
 ORDER BY
-    uu.app_id;
-
+    app_id;
