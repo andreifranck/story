@@ -1,0 +1,27 @@
+SELECT
+    uu.id AS user_id,
+    uu.email AS user_email,
+    la.name AS app,
+    uu.app_id,
+    MIN(pr.purchased_at) AS first_purchase_at,
+    COALESCE(SUM(pr.purchased_price), 0) AS ltv
+FROM
+    unique_users uu
+INNER JOIN
+    latest_apps la ON uu.app_id = la.id
+LEFT JOIN
+    unique_purchase_receipts pr ON uu.id = pr.user_id
+LEFT JOIN
+    unique_purchase_orders upo ON pr.purchase_order_id = upo.id
+WHERE
+    (pr.deleted = FALSE OR pr.deleted IS NULL)
+    AND (pr.is_subscription_trial = FALSE OR pr.is_subscription_trial IS NULL)
+    AND (pr.is_free = FALSE OR pr.is_free IS NULL)
+    AND (pr.trial_mode = FALSE OR pr.trial_mode IS NULL)
+    AND (upo.deleted = FALSE OR upo.deleted IS NULL)
+    AND (upo.is_free = FALSE OR upo.is_free IS NULL)
+    AND (upo.is_trial = FALSE OR upo.is_trial IS NULL)
+GROUP BY
+    uu.id, uu.email, la.name, uu.app_id
+ORDER BY
+    uu.id ASC;
