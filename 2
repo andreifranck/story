@@ -1,9 +1,13 @@
-
 WITH UserLTV AS (
     SELECT
         uu.app_id,
         pr.user_id,
-        COALESCE(SUM(pr.purchased_price), 0) AS ltv_value
+        COALESCE(SUM(
+            CASE
+                WHEN pr.purchased_price > 998 THEN pr.purchased_price / 100
+                ELSE pr.purchased_price
+            END
+        ), 0) AS ltv_value
     FROM
         unique_users uu
     LEFT JOIN
