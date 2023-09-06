@@ -1,0 +1,101 @@
+WITH UserFirstPurchase AS (
+    SELECT
+        uu.id AS user_id,
+        uu.email AS user_email,
+        la.name AS app,
+        uu.app_id,
+        MIN(pr.purchased_at) AS first_purchase_at
+    FROM
+        unique_users uu
+    INNER JOIN
+        latest_apps la ON uu.app_id = la.id
+    LEFT JOIN
+        unique_purchase_receipts pr ON uu.id = pr.user_id
+    LEFT JOIN
+        unique_purchase_orders upo ON pr.purchase_order_id = upo.id
+    WHERE
+        (pr.deleted = FALSE OR pr.deleted IS NULL)
+        AND (pr.is_subscription_trial = FALSE OR pr.is_subscription_trial IS NULL)
+        AND (pr.is_free = FALSE OR pr.is_free IS NULL)
+        AND (pr.trial_mode = FALSE OR pr.trial_mode IS NULL)
+        AND (upo.deleted = FALSE OR upo.deleted IS NULL)
+        AND (upo.is_free = FALSE OR upo.is_free IS NULL)
+        AND (upo.is_trial = FALSE OR upo.is_trial IS NULL)
+    GROUP BY
+        uu.id, uu.email, la.name, uu.app_id
+    HAVING
+        MIN(pr.purchased_at) IS NOT NULL  -- Exclude users who have never made a purchase
+),
+UserLTV AS (
+    SELECT
+        uu.id AS user_id,
+        COALESCE(SUM(
+            CASE
+            WHEN pr.purchased_price > 498 THEN pr.purchased_price / 100
+            ELSE pr.purchased_price
+        END
+        ), 0) AS ltv
+    FROM
+        unique_users uu
+    LEFT JOIN
+        unique_purchase_receipts pr ON uu.id = pr.user_id
+    LEFT JOIN
+        unique_purchase_orders upo ON pr.purchase_order_id = upo.id
+    WHERE
+        (pr.deleted = FALSE OR pr.deleted IS NULL)
+        AND (pr.is_subscription_trial = FALSE OR pr.is_subscription_trial IS NULL)
+        AND (pr.is_free = FALSE OR pr.is_free IS NULL)
+        AND (pr.trial_mode = FALSE OR pr.trial_mode IS NULL)
+        AND (upo.deleted = FALSE OR upo.deleted IS NULL)
+        AND (upo.is_free = FALSE OR upo.is_free IS NULL)
+        AND (upo.is_trial = FALSE OR upo.is_trial IS NULL)
+    GROUP BY
+        uu.id
+),
+UserFlashcardAnswered AS (
+    SELECT
+        uu.id AS user_id,
+        COUNT(fs.id) AS num_flashcards_answered
+    FROM
+        unique_users uu
+    LEFT JOIN
+        flashcard_states fs ON uu.id = fs.user_id
+    WHERE
+        fs.mobile_created_at IS NOT NULL
+    GROUP BY
+        uu.id
+),
+UserQuestionsBeforePurchase AS (
+    SELECT
+        uu.id AS user_id,
+        (SELECT COUNT(fs.id)
+         FROM flashcard_states fs
+         WHERE uu.id = fs.user_id
+           AND fs.mobile_created_at IS NOT NULL
+           AND fs.mobile_created_at < MIN(pr.purchased_at)) AS num_questions_before_purchase
+    FROM
+        unique_users uu
+    LEFT JOIN
+        unique_purchase_receipts pr ON uu.id = pr.user_id
+    GROUP BY
+        uu.id
+)
+SELECT
+    ufp.user_id,
+    ufp.user_email,
+    ufp.app,
+    ufp.app_id,
+    ufp.first_purchase_at,
+    COALESCE(ul.ltv, 0) AS ltv,
+    COALESCE(ufa.num_flashcards_answered, 0) AS num_flashcards_answered,
+    COALESCE(uqbp.num_questions_before_purchase, 0) AS num_questions_before_purchase
+FROM
+    UserFirstPurchase ufp
+LEFT JOIN
+    UserLTV ul ON ufp.user_id = ul.user_id
+LEFT JOIN
+    UserFlashcardAnswered ufa ON ufp.user_id = ufa.user_id
+LEFT JOIN
+    UserQuestionsBeforePurchase uqbp ON ufp.user_id = uqbp.user_id
+ORDER BY
+    ufp.user_id ASC;
